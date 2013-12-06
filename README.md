@@ -27,6 +27,6 @@ It can be run from the command line using the Maven exec plugin:
 
 # Spring 3 Security Java Web Bundle Example
 
-![Spring Security Class Diagram](spring-security-oauth2-class-diagram.png)
+![Spring Security Class Diagram](https://raw.github.com/awh/virgo-spring-oauth2-example/master/spring-security-oauth2-class-diagram.png)
 
 The bulk of this example is formed by the material under `src/main/resources/WEB-INF`, in particular the `virgo-oauth2-example-servlet.xml` which configures the `/test/oauth/token` endpoint and the `/test/treasure` protected resource. The XML file is heavily commented, and is accompanied by the above diagram which illustrates the graph of objects instantiated by the `<authorization-server/>` custom namespace handler which is delivered as part of the Spring 3 security OAuth2 package.

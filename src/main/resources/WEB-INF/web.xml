@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:web="http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd"
+        xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd"
+        id="WebApp_ID" version="2.5">
+
+    <display-name>OAuth2 Protected Resource Example</display-name>
+
+    <!-- Enable osgi:reference service imports via applicationContext.xml -->
+    <context-param>
+        <param-name>contextClass</param-name>
+        <param-value>org.eclipse.virgo.web.dm.ServerOsgiBundleXmlWebApplicationContext</param-value>
+    </context-param>
+
+    <listener>
+        <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
+    </listener>
+
+    <filter>
+        <filter-name>springSecurityFilterChain</filter-name>
+        <filter-class>org.springframework.web.filter.DelegatingFilterProxy</filter-class>
+        <!-- By default, the DelegatingFilterProxy looks in the root application context (e.g. that
+             loaded from WEB-INF/applicationContext.xml) for the springSecurityFilterChain. It is not there!
+             we must tell the proxy to look in the web application context associated with the dispatcher servlet
+             instead. The 'virgo-oauth2-example' must match the servlet name which must match the
+             virgo-oauth2-example-servlet.xml which defines the dispatcher servlet's spring context -->
+        <init-param>
+            <param-name>contextAttribute</param-name>
+            <param-value>org.springframework.web.servlet.FrameworkServlet.CONTEXT.virgo-oauth2-example</param-value>
+        </init-param>
+    </filter>
+
+    <filter-mapping>
+        <filter-name>springSecurityFilterChain</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+
+    <servlet>
+        <!-- The servlet-name is used to locate virgo-oauth2-example-servlet.xml -->
+        <servlet-name>virgo-oauth2-example</servlet-name>
+        <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+        <!-- We need to force the servlet to load on startup so that the dispatcher servlet's web application
+             context is in place before the DelegatingFilterProxy processes any requests -->
+        <load-on-startup>1</load-on-startup>
+    </servlet>
+
+    <servlet-mapping>
+        <servlet-name>virgo-oauth2-example</servlet-name>
+        <url-pattern>/</url-pattern>
+    </servlet-mapping>
+
+</web-app>

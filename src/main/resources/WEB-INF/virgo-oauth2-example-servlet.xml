@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:security="http://www.springframework.org/schema/security"
+       xmlns:oauth="http://www.springframework.org/schema/security/oauth2"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:util="http://www.springframework.org/schema/util"
+       xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xsi:schemaLocation="http://www.springframework.org/schema/security/oauth2 http://www.springframework.org/schema/security/spring-security-oauth2-1.0.xsd
+                           http://www.springframework.org/schema/security http://www.springframework.org/schema/security/spring-security-3.1.xsd
+                           http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+                           http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-3.0.xsd
+                           http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util-3.0.xsd
+                           http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc-3.0.xsd">
+
+    <!-- Automatically create bean definitions for all annotated classes in the specified package.
+         In this example that constitutes a simple MVC @Controller annotated class which will constitute
+         our OAuth2 protected resource; it is defined here, and the mvc:annotation-driven tag later on
+         detects that it exists in the context and wires it into the MVC dispatcher servlet -->
+    <context:component-scan base-package="org.antispin.example.virgo.oauth2.protectedresource"/>
+
+    <!-- Authentication manager for client (not resource-owner) authentication required to
+         protect the token endpoint URL -->
+    <security:authentication-manager id="clientAuthenticationManager">
+        <security:authentication-provider>
+            <security:user-service>
+                <security:user name="trusted" password="secret" authorities="ROLE_USER" />
+            </security:user-service>
+        </security:authentication-provider>
+    </security:authentication-manager>
+
+    <!-- The TokenEndpoint implementation is hard coded to require an authenticated principal. Therefore
+         we protect the URL with HTTP Basic authentication using a separate client authentication manager
+         from the one we define later on for resource-owner credentials -->
+    <security:http pattern="/oauth/token" create-session="stateless" authentication-manager-ref="clientAuthenticationManager">
+        <security:intercept-url pattern="/oauth/token" access="IS_AUTHENTICATED_FULLY" />
+        <security:anonymous enabled="false" />
+        <security:http-basic/>
+    </security:http>
+
+
+    <!-- Used by the OAuth2 machinery to lookup details about a specific client (e.g. a third party
+         website, or our smartphone app) using the client ID they pass in when accessing the
+         /oauth/authorization and /oauth/token URLs -->
+    <oauth:client-details-service id="clientDetailsService">
+        <!-- This client is trusted in the sense that the resource owner trusts it to have
+             direct access to their credentials for use with the password grant type; for example
+             a GWT application loaded from our site or a smartphone application -->
+        <oauth:client client-id="trusted" authorized-grant-types="password"/>
+    </oauth:client-details-service>
+
+    <!-- Used by the OAuth2 machinery to create and lookup access tokens -->
+    <bean id="tokenServices" class="org.springframework.security.oauth2.provider.token.RandomValueTokenServices">
+        <property name="tokenStore">
+            <!-- Other TokenStore implementations are available out of the box, e.g. JDBC -->
+            <bean class="org.springframework.security.oauth2.provider.token.InMemoryTokenStore"/>
+        </property>
+    </bean>
+
+    <!-- This creates the default AuthenticationManager which has an id equal to
+         org.springframework.security.config.BeanIds.AUTHENTICATION_MANAGER. An
+         AuthenticationManager with this name is injected into the ResourceOwnerPasswordTokenGranter
+         created by the <oauth:authorization-server> directive later on -->
+    <security:authentication-manager>
+        <security:authentication-provider>
+            <security:user-service>
+                <security:user name="test" password="changeme" authorities="ROLE_USER" />
+            </security:user-service>
+        </security:authentication-provider>
+    </security:authentication-manager>
+
+    <!-- Custom spring configuration element whose behaviour is implemented by
+
+         org.springframework.security.oauth2.config.AuthorizationServerBeanDefinitionParser
+
+         Responsibilities:
+            - Define appropriate TokenGranter beans referencing supplied ClientDetailsService
+              and AuthorizationServerTokenServices
+            - Define TokenEndpoint and AuthorizationEndpoint @Controller beans to field
+              /oauth/authorize and /oauth/token URLs. These reference ClientDetailsService and
+              any appropriate TokenGranter beans -->
+    <oauth:authorization-server client-details-service-ref="clientDetailsService"
+                                token-services-ref="tokenServices">
+        <!-- We define only one grant type here, which is the resource owner credential grant. Different
+             TokenGranter implementatations are instantiated depending on which grant types are listed here,
+             and a composite granter containing them all is injected into the TokenEndpoint. This
+             directive causes the instantiation of a ResourceOwnerPasswordTokenGranter which references
+             the default AuthenticationManager defined above -->
+        <oauth:password/>
+    </oauth:authorization-server>
+
+    <!-- This authentication entry point causes a 'WWW-Authenticate: Bearer' header to be sent back to the
+         client if they try to access a protected resource without supplying an access token -->
+    <bean id="oauthAuthenticationEntryPoint" class="org.springframework.security.oauth2.provider.error.MediaTypeAwareAuthenticationEntryPoint">
+		<property name="realmName" value="randomrealm" />
+	</bean>
+
+    <!-- Custom spring configuration element which creates a custom filter for checking
+         access tokens -->
+    <oauth:resource-server id="resourceServerFilter" token-services-ref="tokenServices" />
+
+    <!-- Protect the treasure resource with the access token checking filter. If no access token is found,
+         specify use the specified authentication entry point to ask for Bearer authentication -->
+    <security:http pattern="/treasure" create-session="stateless" entry-point-ref="oauthAuthenticationEntryPoint">
+        <security:anonymous enabled="false" />
+        <security:intercept-url pattern="/treasure" access="ROLE_USER" />
+        <security:custom-filter ref="resourceServerFilter" before="PRE_AUTH_FILTER" />
+    </security:http>
+
+    <!-- Configure the DispatcherServlet with all @Controller beans. These include
+         the beans detected in the example resource package using the context:component-scan
+         directive above, and the /oauth/authorize and /oauth/token controller beans  which were
+         instantiated by the authorization-server directive. -->
+	<mvc:annotation-driven/>
+
+</beans>
